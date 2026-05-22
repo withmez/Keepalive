@@ -3,7 +3,7 @@ name: VPS8 Checkin
 on:
   schedule:
     # 每天北京时间 09:07 运行（UTC 01:07，避开整点排队）
-    - cron: '7 1 * * *'
+    - cron: '10 0 * * *'
   workflow_dispatch:
     inputs:
       debug:
@@ -104,3 +104,37 @@ jobs:
           path: screenshots/
           retention-days: 7
           if-no-files-found: ignore
+
+      # 👇 每天自动把 cron +10 分钟
+      - name: Auto increment cron by +10 minutes daily
+        if: success()
+        run: |
+          # 读取当前 cron
+          yaml_file=".github/workflows/$(basename "$GITHUB_WORKFLOW")"
+          current_cron=$(grep -E 'cron: ' "$yaml_file" | head -1 | sed 's/.*cron: //g' | tr -d '"' | tr -d "'")
+          echo "当前 cron: $current_cron"
+
+          # 分解 分 时，+10分钟
+          minute=$(echo "$current_cron" | awk '{print $1}')
+          hour=$(echo "$current_cron" | awk '{print $2}')
+          new_minute=$((minute + 10))
+          new_hour=$hour
+          
+          if [ $new_minute -ge 60 ]; then
+            new_minute=$((new_minute - 60))
+            new_hour=$((hour + 1))
+          fi
+          if [ $new_hour -ge 24 ]; then
+            new_hour=$((new_hour - 24))
+          fi
+
+          new_cron="${new_minute} ${new_hour} * * *"
+          echo "新 cron: $new_cron"
+          sed -i "s/cron: .*/cron: '$new_cron'/" "$yaml_file"
+
+          # 提交
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add "$yaml_file"
+          git commit -m "Auto update cron to $new_cron"
+          git push
