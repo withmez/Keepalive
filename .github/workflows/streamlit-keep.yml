@@ -3,27 +3,22 @@ name: Streamlit 自动唤醒
 on:
   workflow_dispatch:
   repository_dispatch:
-    types: [service-down]
+    types: [streamlit]
   # schedule:
   #   - cron: '0 0 * * *' # 每天 UTC 00:00 运行
 
 jobs:
-  wakeup:
+  streamlit-wakeup:
+    if: github.event_name != 'repository_dispatch' || contains(github.event.client_payload.status, 'Down')
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
-      - name: 检查触发事件
+      - name: 调试 - 打印收到的 client_payload
         run: |
-          echo "Workflow triggered by: ${{ github.event_name }}"
-          if [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
-            echo "触发事件类型 (Event Type): ${{ github.event.action }}"
-            echo "收到来自 Uptime Kuma 的下线通知，开始执行自动唤醒流程..."
-          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "工作流被手动触发，开始执行唤醒..."
-          else
-            echo "工作流由计划任务触发，开始执行唤醒..."
-          fi
-
+          echo "event_name: ${{ github.event_name }}"
+          echo 'client_payload: ${{ toJSON(github.event.client_payload) }}'
+  
       - name: 检出仓库代码
         uses: actions/checkout@v4
 
@@ -36,12 +31,14 @@ jobs:
           python-version: "3.10"
 
       - name: 安装 Python 依赖
+        working-directory: streamlit
         run: |
           python -m pip install --upgrade pip
-          pip install -r keep/requirements.txt
+          pip install -r requirements.txt
 
       - name: 执行 Streamlit 唤醒脚本
+        working-directory: streamlit
         env:
           STREAMLIT_APP_URL: ${{ vars.STREAMLIT_APP_URL }}
         run: |
-          python keep/streamlit-keep.py
+          python autorun.py
