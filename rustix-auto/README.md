@@ -131,7 +131,7 @@ Uptime Kuma 调用 GitHub API 需要 Personal Access Token：
 {
   "event_type": "rustix",
   "client_payload": {
-    "msg": "{{msg}}"
+    "status": "{{ status }}"
   }
 }
 ```
